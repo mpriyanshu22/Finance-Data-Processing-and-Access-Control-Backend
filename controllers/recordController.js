@@ -22,10 +22,25 @@ const createRecord = async (req, res, next) => {
 
 const getRecords = async (req, res, next) => {
   try {
-    const { type, category } = req.query;
+    const { type, category, startDate, endDate, date } = req.query;
     const filter = {};
+
     if (type) filter.type = type;
-    if (category) filter.category = category;
+    if (category) {
+      filter.category = { $regex: new RegExp(category, 'i') }; // Case-insensitive matching
+    }
+
+    if (startDate || endDate) {
+      filter.date = {};
+      if (startDate) filter.date.$gte = new Date(startDate);
+      if (endDate) filter.date.$lte = new Date(endDate);
+    }
+    else if (date) {
+      const searchDate = new Date(date);
+      const startOfDay = new Date(searchDate.setHours(0, 0, 0, 0));
+      const endOfDay = new Date(searchDate.setHours(23, 59, 59, 999));
+      filter.date = { $gte: startOfDay, $lte: endOfDay };
+    }
 
     const records = await Record.find(filter).populate('createdBy', 'username role');
     res.json(records);
@@ -39,7 +54,8 @@ const getRecord = async (req, res, next) => {
     const record = await Record.findById(req.params.id).populate('createdBy', 'username role');
     if (!record) return res.status(404).json({ message: "Record not found" });
     res.json(record);
-  } catch (err) {
+  }
+  catch (err) {
     next(err);
   }
 };
